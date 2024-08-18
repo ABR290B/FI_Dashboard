@@ -2,6 +2,7 @@ import refinitiv.data as rd
 import logging
 from refinitiv.data.content.ipa import surfaces
 import time
+import pandas as pd
 
 
 # Set up logging
@@ -114,31 +115,45 @@ def fetch_data(ticker, fields):
         logging.error(f"Error fetching data for {ticker}: {e}")
         return None
 
-def main():
+def fetch_prices_yields_implied_rates():
     """
-    Main function to fetch US Treasury Spot Prices, Yields, FED Fund Futures Quotes, FOMC Implied Rates, and VOLC Matrices.
+    Fetches Prices, Yields, and Implied Rates (excluding VOLC).
     """
-    start_session()
-    
     results = {}
     for key, instrument in INSTRUMENTS.items():
-        ticker = instrument["ticker"]
-        if key == "SRAZ24_VOLC":
-            data = fetch_volc_matrix_for_sraz24()
-        else:
+        if key != "SRAZ24_VOLC":  # Skip VOLC as it doesn't need to be updated frequently
+            ticker = instrument["ticker"]
             fields = instrument.get("fields", [])
             data = fetch_data(ticker, fields)
+            if data is not None:
+                results[key] = data
+    return results
+
+# Example function to save fetched data
+def save_data_to_csv(data, filename):
+    if data is not None:
+        data.to_csv(f'Dashboard\data_fetch\csvfiles\{filename}.csv', index=False)
+        logging.info(f"Data saved to {filename}.csv")
+    else:
+        logging.warning(f"No data to save for {filename}")
+
+def main():
+    start_session()
+    
+    # Fetch VOLC Matrix once and save it
+    volc_matrix = fetch_volc_matrix_for_sraz24()
+    save_data_to_csv(volc_matrix, 'sraz24_volc_matrix')
+    
+    while True:
+        results = fetch_prices_yields_implied_rates()
         
-        if data is not None:
-            results[key] = data
+        # Save each fetched DataFrame to a CSV file
+        for key, data in results.items():
+            save_data_to_csv(data, key)
+        
+        time.sleep(10)
     
     close_session()
-    
-    logging.info("Final fetched data:")
-    for key, data in results.items():
-        logging.info(f"{key}: \n{data}")
-
-    return results
 
 if __name__ == "__main__":
     main()
