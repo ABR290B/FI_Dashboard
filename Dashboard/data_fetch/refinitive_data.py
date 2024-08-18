@@ -1,5 +1,8 @@
 import refinitiv.data as rd
 import logging
+from refinitiv.data.content.ipa import surfaces
+import time
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -9,6 +12,7 @@ INSTRUMENTS = {
     "2Y_Spot": {"ticker": "US2YT=RR", "fields": ['BID', 'ASK','RT_YIELD_1']},
     "5Y_Spot": {"ticker": "US5YT=RR", "fields": ['BID', 'ASK','RT_YIELD_1']},
     "10Y_Spot": {"ticker": "US10YT=RR", "fields": ['BID', 'ASK','RT_YIELD_1']},
+    # FED FUND O/Rs
     "FFQ24": {"ticker": "FFQ24", "fields": ['BID', 'ASK', 'TRDPRC_1', 'OPEN_PRC', 'CLOSE_PRC']},
     "FFU24": {"ticker": "FFU24", "fields": ['BID', 'ASK', 'TRDPRC_1', 'OPEN_PRC', 'CLOSE_PRC']},
     "FFV24": {"ticker": "FFV24", "fields": ['BID', 'ASK', 'TRDPRC_1', 'OPEN_PRC', 'CLOSE_PRC']},
@@ -30,6 +34,7 @@ INSTRUMENTS = {
     "FOMC_Jun25": {"ticker": "USIRP25F7=R", "fields": ['IMPLD_BPS']},
     "FOMC_Jul25": {"ticker": "USIRP25F8=R", "fields": ['IMPLD_BPS']},
     "FOMC_Sep25": {"ticker": "USIRP25F9=R", "fields": ['IMPLD_BPS']},
+    "SRAZ24_VOLC": {"ticker": "SRAZ24"}
 }
 
 def start_session():
@@ -53,6 +58,37 @@ def close_session():
         logging.info("Session closed successfully.")
     except Exception as e:
         logging.error(f"Failed to close session: {e}")
+
+def fetch_volc_matrix_for_sraz24():
+    """
+    Fetches the VOLC Matrix for the SRAZ24 contract.
+    
+    Returns:
+        DataFrame: The fetched VOLC Matrix as a pandas DataFrame.
+    """
+    try:
+        logging.info(f"Fetching VOLC Matrix for SRAZ24")
+        response = rd.content.ipa.surfaces.eti.Definition(
+            surface_tag="SRAZ24_Volatility_Surface",
+            underlying_definition={
+                "instrumentCode": "SRAZ24"
+            },
+            surface_parameters={
+            },
+            surface_layout={
+                "format": "Matrix"
+            }
+        ).get_data()
+
+        if response is not None and not response.data.df.empty:
+            logging.info(f"VOLC Matrix fetched successfully for SRAZ24")
+            return response.data.df
+        else:
+            logging.warning(f"No VOLC Matrix found for SRAZ24.")
+            return None
+    except Exception as e:
+        logging.error(f"Error fetching VOLC Matrix for SRAZ24: {e}")
+        return None
 
 def fetch_data(ticker, fields):
     """
@@ -80,15 +116,19 @@ def fetch_data(ticker, fields):
 
 def main():
     """
-    Main function to fetch US Treasury Spot Prices, Yields, FED Fund Futures Quotes, and FOMC Implied Rates.
+    Main function to fetch US Treasury Spot Prices, Yields, FED Fund Futures Quotes, FOMC Implied Rates, and VOLC Matrices.
     """
     start_session()
     
     results = {}
     for key, instrument in INSTRUMENTS.items():
         ticker = instrument["ticker"]
-        fields = instrument["fields"]
-        data = fetch_data(ticker, fields)
+        if key == "SRAZ24_VOLC":
+            data = fetch_volc_matrix_for_sraz24()
+        else:
+            fields = instrument.get("fields", [])
+            data = fetch_data(ticker, fields)
+        
         if data is not None:
             results[key] = data
     
