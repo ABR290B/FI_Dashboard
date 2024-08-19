@@ -170,8 +170,8 @@ def main():
         for key, data in results.items():
             append_data_to_csv(data, key)
             update_data(key, data)
-        
-        time.sleep(60)
+
+        time.sleep(600)
     
     close_session()
 

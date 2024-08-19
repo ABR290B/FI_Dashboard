@@ -9,9 +9,7 @@ def update_data(key, data):
     
     Parameters:
         key (str): The key to identify the data (e.g., 'FFQ24', '2Y_Spot').
-        data (any): The latest fetched data (e.g., DataFrame).
+        data (any): The latest fetched data (e.g., DataFrame, list, etc.).
     """
     global latest_data
     latest_data[key] = data
-
-print(latest_data)
