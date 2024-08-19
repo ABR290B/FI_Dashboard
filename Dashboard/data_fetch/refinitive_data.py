@@ -3,7 +3,9 @@ import logging
 from refinitiv.data.content.ipa import surfaces
 import time
 import pandas as pd
-
+import datetime
+import os
+from data_store import update_data  # Import the function to update data
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -130,26 +132,44 @@ def fetch_prices_yields_implied_rates():
     return results
 
 # Example function to save fetched data
-def save_data_to_csv(data, filename):
+def append_data_to_csv(data, filename):
+    """
+    Append fetched data to a CSV file with a timestamp.
+    
+    Parameters:
+        data (DataFrame): The data to save.
+        filename (str): The name of the CSV file to save the data in.
+    """
     if data is not None:
-        data.to_csv(f'Dashboard\data_fetch\csvfiles\{filename}.csv', index=False)
-        logging.info(f"Data saved to {filename}.csv")
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        data.insert(0, 'Timestamp', timestamp)
+        
+        file_path = f'Dashboard/data_fetch/csvfiles/{filename}.csv'
+        
+        if not os.path.exists(file_path):
+            data.to_csv(file_path, index=False)
+            logging.info(f"Data saved to {filename}.csv")
+        else:
+            data.to_csv(file_path, mode='a', header=False, index=False)
+            logging.info(f"Data appended to {filename}.csv")
     else:
         logging.warning(f"No data to save for {filename}")
 
 def main():
     start_session()
     
-    # Fetch VOLC Matrix once and save it
+    # Fetch VOLC Matrix once and store it
     volc_matrix = fetch_volc_matrix_for_sraz24()
-    save_data_to_csv(volc_matrix, 'sraz24_volc_matrix')
+    append_data_to_csv(volc_matrix, 'sraz24_volc_matrix')
+    update_data('SRAZ24_VOLC', volc_matrix)
     
     while True:
         results = fetch_prices_yields_implied_rates()
         
-        # Save each fetched DataFrame to a CSV file
+        # Append each fetched DataFrame to the corresponding CSV file and update the latest data
         for key, data in results.items():
-            save_data_to_csv(data, key)
+            append_data_to_csv(data, key)
+            update_data(key, data)
         
         time.sleep(10)
     
