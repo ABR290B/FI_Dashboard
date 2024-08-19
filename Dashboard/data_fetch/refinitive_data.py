@@ -171,7 +171,7 @@ def main():
             append_data_to_csv(data, key)
             update_data(key, data)
         
-        time.sleep(10)
+        time.sleep(60)
     
     close_session()
 
